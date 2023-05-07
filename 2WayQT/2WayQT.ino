@@ -9,18 +9,20 @@
   copies or substantial portions of the Software.
 */
 
+// Define the specific libraries
 #include <esp_now.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
 
+// Starts the I2C communication and the neopixel on the QT PY
 extern TwoWire Wire1;
 Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 
 // REPLACE WITH THE MAC Address of your receiver
 uint8_t broadcastAddress[] = {0x7C, 0xDF, 0xA1, 0x95, 0x51, 0x88};
 
-// Define variables to store BME280 readings to be sent
+// Define variables to store RTC readings to be sent
 byte ss;
 byte mi;
 byte hh;
@@ -37,7 +39,6 @@ bool button;
 // Variable to store if sending data was successful
 String success;
 
-//Structure example to send data
 //Must match the receiver structure
 typedef struct struct_message {
   byte _ss;
@@ -51,10 +52,10 @@ typedef struct struct_message {
   int _teamnum;
 } struct_message;
 
-// Create a struct_message called BME280Readings to hold sensor readings
+// Create a struct_message called MyData to hold time reading
 struct_message myData;
 
-// Create a struct_message to hold incoming sensor readings
+// Create a struct_message to hold incoming button readings
 struct_message incomingReadings;
 
 esp_now_peer_info_t peerInfo;
@@ -85,11 +86,14 @@ void setup() {
   Wire1.begin();
   Wire1.setPins(SDA1, SCL1);
 
+  // Starts neopixel
   pixels.begin();
 
+  // Turns the MISO and SCK pin inot GPIO pins
   pinMode(37, OUTPUT);
   pinMode(36, OUTPUT);
 
+  // Init motor value
   motor = 0;
 
   // Set device as a Wi-Fi Station
@@ -120,7 +124,10 @@ void setup() {
 }
 
 void loop() {
+  // Grabs the time reading from the RTC
   grabTime();
+  
+  // Stores the reading in MyData to be sent
   myData._ss = ss;
   myData._mi = mi;
   myData._hh = hh;
@@ -133,6 +140,7 @@ void loop() {
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
 
+   // Checks if the esp has sent a value
   if (result == ESP_OK) {
     Serial.println("Sent with success");
   }
@@ -140,13 +148,18 @@ void loop() {
     Serial.println("Error sending the data");
   }
 
+  //
   if (button == false) {
     pixels.setPixelColor(0, pixels.Color(0, 0, 255));
+    
+    // if the motor is turned of mid profile while still resurface
     while (motor < 90) {
       if (motor < 35 && motor > 0) {
+        // Makes the plunger go up and the float down, with a ten second delay
         digitalWrite(37, HIGH);
         digitalWrite(36, LOW);
       }
+      // Makes the plunger go down and the float up, with a ten second delay
       if (motor > 45  && motor < 80) {
         digitalWrite(37, LOW);
         digitalWrite(36, HIGH);
@@ -155,15 +168,20 @@ void loop() {
     motor = 0;
   } else {
     pixels.setPixelColor(0, pixels.Color(0, 255, 0));
+    
+    // Code makes float go up and down
     if (motor < 35 && motor > 0) {
+      // Makes the plunger go up and the float down, with a ten second delay
       digitalWrite(37, HIGH);
       digitalWrite(36, LOW);
     }
     if (motor > 45  && motor < 80) {
+      // Makes the plunger go down and the float up, with a ten second delay
       digitalWrite(37, LOW);
       digitalWrite(36, HIGH);
     }
     if (motor > 90) {
+      // Resets motor so that the float begins another profile
       motor = 0;
     }
   }
@@ -199,11 +217,11 @@ void grabTime() {
     dm = bcdToDec(Wire1.read()); // get day of month
     mo = bcdToDec(Wire1.read()); // get month
     yy = bcdToDec(Wire1.read()); // get year
-    motor++;
-    // indicate that we successfully got the time
+    motor++; // Keeps motor in check with the number of seconds
   }
 }
 
+// Turns bytes from wire1 to decimals
 byte bcdToDec(byte val)
 {
   return ( (val / 16 * 10) + (val % 16) );
