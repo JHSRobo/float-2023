@@ -9,20 +9,36 @@
   copies or substantial portions of the Software.
 */
 
-// Define the specific libraries
 #include <esp_now.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_NeoMatrix.h>
+#include <Adafruit_GFX.h>
+#include <Fonts/TomThumb.h> // A tiny 3x5 font incl. w/GFX
 
-// Starts the I2C communication and the neopixel on the QT PY
+// Defines pin a3 on the QT PY as the signal line
+#define PIN A3
+// Init the neomatrix object with the number of leds and pin
+Adafruit_NeoMatrix matrix(5, 5, PIN,
+                          NEO_MATRIX_TOP  + NEO_MATRIX_RIGHT +
+                          NEO_MATRIX_ROWS + NEO_MATRIX_PROGRESSIVE,
+                          NEO_GRB         + NEO_KHZ800);
+
+// Defines message for neopixel
+const char message[] = "JESUIT";
+// Creates colors to be called when float does profiles
+const uint16_t colors[] = {matrix.Color(255, 0, 0), matrix.Color(154, 205, 50), 
+matrix.Color(21, 32, 166), matrix.Color(255, 233, 0)};
+uint16_t message_width;
+
+// Starts the I2C communication
 extern TwoWire Wire1;
-Adafruit_NeoPixel pixels(1, PIN_NEOPIXEL);
 
 // REPLACE WITH THE MAC Address of your receiver
 uint8_t broadcastAddress[] = {0x7C, 0xDF, 0xA1, 0x95, 0x51, 0x88};
 
-// Define variables to store RTC readings to be sent
+// Define variables to store BME280 readings to be sent
 byte ss;
 byte mi;
 byte hh;
@@ -39,6 +55,7 @@ bool button;
 // Variable to store if sending data was successful
 String success;
 
+//Structure example to send data
 //Must match the receiver structure
 typedef struct struct_message {
   byte _ss;
@@ -52,10 +69,10 @@ typedef struct struct_message {
   int _teamnum;
 } struct_message;
 
-// Create a struct_message called MyData to hold time reading
+// Create a struct_message called BME280Readings to hold sensor readings
 struct_message myData;
 
-// Create a struct_message to hold incoming button readings
+// Create a struct_message to hold incoming sensor readings
 struct_message incomingReadings;
 
 esp_now_peer_info_t peerInfo;
@@ -77,7 +94,6 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
   button = incomingReadings._button;
-  Serial.println(incomingReadings._button);
 }
 
 void setup() {
@@ -86,10 +102,20 @@ void setup() {
   Wire1.begin();
   Wire1.setPins(SDA1, SCL1);
 
-  // Starts neopixel
-  pixels.begin();
+  // Starts the matrix, sets brightness, font and wrapping
+  matrix.begin();
+  matrix.setBrightness(5);
+  matrix.setFont(&TomThumb);
+  matrix.setTextWrap(false);
 
-  // Turns the MISO and SCK pin inot GPIO pins
+  matrix.setTextColor(colors[0]); // Start with first color in list
+
+  // Creates the bounds so the text can scroll off a screen
+  int16_t  d1;
+  uint16_t d2;
+  matrix.getTextBounds(message, 0, 0, &d1, &d1, &message_width, &d2);
+
+  // Turns the MISO and SCK pin into GPIO pins
   pinMode(37, OUTPUT);
   pinMode(36, OUTPUT);
 
@@ -123,11 +149,12 @@ void setup() {
   esp_now_register_recv_cb(OnDataRecv);
 }
 
+int x = matrix.width();  // Start with message off right edge
+int y = matrix.height(); // With custom fonts, y is the baseline, not top
+int colornum = 0;
+
 void loop() {
-  // Grabs the time reading from the RTC
   grabTime();
-  
-  // Stores the reading in MyData to be sent
   myData._ss = ss;
   myData._mi = mi;
   myData._hh = hh;
@@ -140,67 +167,66 @@ void loop() {
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
 
-   // Checks if the esp has sent a value
   if (result == ESP_OK) {
     Serial.println("Sent with success");
   }
   else {
     Serial.println("Error sending the data");
   }
-
-  //
   if (button == false) {
-    pixels.setPixelColor(0, pixels.Color(0, 0, 255));
-    
-    // if the motor is turned of mid profile while still resurface
-    while (motor < 90) {
-      if (motor < 35 && motor > 0) {
-        // Makes the plunger go up and the float down, with a ten second delay
-        digitalWrite(37, HIGH);
-        digitalWrite(36, LOW);
-      }
-      // Makes the plunger go down and the float up, with a ten second delay
-      if (motor > 45  && motor < 80) {
-        digitalWrite(37, LOW);
-        digitalWrite(36, HIGH);
-      }
-    }
+    // If button false stop the motor and turn JESUIT red
     motor = 0;
-  } else {
-    pixels.setPixelColor(0, pixels.Color(0, 255, 0));
-    
-    // Code makes float go up and down
-    if (motor < 35 && motor > 0) {
-      // Makes the plunger go up and the float down, with a ten second delay
-      digitalWrite(37, HIGH);
-      digitalWrite(36, LOW);
-    }
-    if (motor > 45  && motor < 80) {
-      // Makes the plunger go down and the float up, with a ten second delay
+    digitalWrite(37, LOW);
+    digitalWrite(36, LOW);
+    colornum = 0;
+  } else {  
+    // Makes the plunger go up and the float down, turns JESUIT green
+    if (motor < 230 && motor > 0) {
       digitalWrite(37, LOW);
       digitalWrite(36, HIGH);
+      colornum = 1;
     }
-    if (motor > 90) {
+    else if (motor > 245  && motor < 470) {
+      // Makes the plunger go down and the float up, turns JESUIT blue
+      digitalWrite(37, HIGH);
+      digitalWrite(36, LOW);
+      colornum = 2;
+    }
+    else if (motor > 470) {
       // Resets motor so that the float begins another profile
       motor = 0;
+      
+    } else {
+      //Stops motor so that there is a delay and turns JESUIT gold
+      digitalWrite(37, LOW);
+      digitalWrite(36, LOW);
+      colornum = 3;
     }
   }
+  Serial.println(motor);
+  
+  // Makes the Neogrid blank
+  matrix.fillScreen(0);
+  // Sets the cursor
+  matrix.setCursor(x, y);
+  // Prints the message
+  matrix.print(message);
+  // Turns on the lights
+  matrix.show();
 
-
-  // and write the data
-  pixels.show();
-
-  delay(250);
-
-  // turn off the pixel
-  pixels.clear();
-  pixels.show();
-
-  delay(250);
+  // Moves the text across the screen
+  if (--x < -message_width) {
+    x = matrix.width();
+  }
+  
+  // Sets the color if it changes while in 'motor' mode
+  matrix.setTextColor(colors[colornum]);
+  
+  delay(100);
 }
+
 void grabTime() {
   // get time from the RTC and put it in global variables
-
   // send request to receive data starting at register 0
   Wire1.beginTransmission(0x68); // 0x68 is DS3231 device address
   Wire1.write((byte)0); // start at register 0
@@ -217,7 +243,8 @@ void grabTime() {
     dm = bcdToDec(Wire1.read()); // get day of month
     mo = bcdToDec(Wire1.read()); // get month
     yy = bcdToDec(Wire1.read()); // get year
-    motor++; // Keeps motor in check with the number of seconds
+    motor++;
+    // indicate that we successfully got the time
   }
 }
 
