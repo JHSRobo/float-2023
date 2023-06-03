@@ -8,15 +8,12 @@
   The above copyright notice and this permission notice shall be included in all
   copies or substantial portions of the Software.
 */
-
-// Define the specific libraries
 #include <Adafruit_GFX.h>    // Core graphics library
 #include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
 #include <SPI.h>
 #include <esp_now.h>
 #include <WiFi.h>
 
-// REPLACE WITH THE MAC Address of your receiver
 uint8_t broadcastAddress[] = {0xD4, 0xF9, 0x8D, 0x71, 0x15, 0x16};
 
 // Define variables to store BME280 readings to be sent
@@ -83,26 +80,23 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 }
 
-// Creates the true/false button
-const int buttonPin = 5;
-const int ledPin =  LED_BUILTIN;;
+const int buttonPin = 18;
+const int ledPin =  LED_BUILTIN;
 int buttonState = 0;
 
-// Creates the board object
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
 void setup() {
   // Initialize Serial Monitor
   Serial.begin(115200);
-  
-  // Starts the built-in led
+
   pinMode(ledPin, OUTPUT);
 
   pinMode(buttonPin, INPUT);
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
-  
+
   // Init ESP-NOW
   if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
@@ -137,20 +131,23 @@ void setup() {
 
   // initialize TFT
   tft.init(135, 240); // Init ST7789 240x135
-  tft.setRotation(3);
-  tft.fillScreen(ST77XX_BLACK);
+  tft.setRotation(3); // Sets the orientation
+  tft.fillScreen(ST77XX_BLACK); // Sets background color
 
   Serial.println(F("Initialized"));
 }
 
 void loop() {
-  // Checks if button is pressed and changes the state
-  ButtonPressed();
+  // Calls button function
+  ButtonPressed(); 
 
+  // Sets the button data to current
   myData._button = button;
 
+  // Checks if data was sent
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
 
+  // Prints check
   if (result == ESP_OK) {
     Serial.println("Sent with success");
   }
@@ -158,12 +155,13 @@ void loop() {
     Serial.println("Error sending the data");
   }
 
-  // Displays incoming data
+  // Calls display function
   DisplayData();
 }
 
+// Displays data on the TFT
 void DisplayData() {
-  tft.setCursor(10, 10);  // Sets the location of the text
+  tft.setCursor(10, 10); // Sets the location of the text
   tft.setTextColor(ST77XX_GREEN, ST77XX_BLACK); // Sets the color
   tft.setTextSize(2);
   tft.print("Date: ");
@@ -185,7 +183,7 @@ void DisplayData() {
   tft.println(") ");
   tft.setCursor(10, 40);
   tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-  /* Displays UTC time, including hour, minute, and second, 
+    /* Displays UTC time, including hour, minute, and second, 
   with the last two having functions to display zeros infront */
   tft.print("Time: ");
   tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
@@ -212,14 +210,14 @@ void DisplayData() {
   tft.setCursor(10, 100);
   tft.setTextColor(ST77XX_BLUE, ST77XX_BLACK);
   tft.setTextSize(2);
-  // Displays if the button has been pressed, not if the QT PY has recieved the message
-  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
+   // Displays if the button has been pressed, not if the QT PY has recieved the message
   tft.print("Button Pressed: ");
+  tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
   tft.print(button);
 }
 
+// Function to update button and switch the on and off
 void ButtonPressed() {
-  // Checks if the button was pressed and changes the state if it was
   buttonState = digitalRead(buttonPin);
   if (buttonState == HIGH) {
     digitalWrite(ledPin, HIGH);
