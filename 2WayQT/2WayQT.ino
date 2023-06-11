@@ -28,8 +28,9 @@ Adafruit_NeoMatrix matrix(5, 5, PIN,
 // Defines message for neopixel
 const char message[] = "JESUIT";
 // Creates colors to be called when float does profiles
-const uint16_t colors[] = {matrix.Color(255, 0, 0), matrix.Color(154, 205, 50), 
-matrix.Color(21, 32, 166), matrix.Color(255, 233, 0)};
+const uint16_t colors[] = {matrix.Color(255, 0, 0), matrix.Color(154, 205, 50),
+                           matrix.Color(21, 32, 166), matrix.Color(255, 233, 0)
+                          };
 uint16_t message_width;
 
 // Starts the I2C communication
@@ -38,7 +39,7 @@ extern TwoWire Wire1;
 // REPLACE WITH THE MAC Address of your receiver
 uint8_t broadcastAddress[] = {0x7C, 0xDF, 0xA1, 0x95, 0x51, 0x88};
 
-// Define variables to store BME280 readings to be sent
+// Define variables to store readings to be sent
 byte ss;
 byte mi;
 byte hh;
@@ -51,9 +52,12 @@ int motor;
 
 // Define variables to store incoming readings
 bool button;
+bool descending;
+bool ascending;
 
 // Variable to store if sending data was successful
 String success;
+byte wait;
 
 //Structure example to send data
 //Must match the receiver structure
@@ -66,6 +70,8 @@ typedef struct struct_message {
   byte _mo;
   byte _yy;
   bool _button;
+  bool _descending;
+  bool _ascending;
   int _teamnum;
 } struct_message;
 
@@ -94,6 +100,8 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
   button = incomingReadings._button;
+  descending = incomingReadings._descending;
+  ascending = incomingReadings._ascending;
 }
 
 void setup() {
@@ -154,7 +162,11 @@ int y = matrix.height(); // With custom fonts, y is the baseline, not top
 int colornum = 0;
 
 void loop() {
+  wait = ss;
   grabTime();
+  if (ss != wait) {
+    motor++;
+  }
   myData._ss = ss;
   myData._mi = mi;
   myData._hh = hh;
@@ -162,7 +174,9 @@ void loop() {
   myData._dm = dm;
   myData._mo = mo;
   myData._yy = yy;
-  myData._teamnum = 12;
+  myData._teamnum = 6;
+
+  moveMotor();
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
@@ -179,23 +193,23 @@ void loop() {
     digitalWrite(37, LOW);
     digitalWrite(36, LOW);
     colornum = 0;
-  } else {  
+  } else {
     // Makes the plunger go up and the float down, turns JESUIT green
-    if (motor < 230 && motor > 0) {
-      digitalWrite(37, LOW);
-      digitalWrite(36, HIGH);
-      colornum = 1;
-    }
-    else if (motor > 245  && motor < 470) {
-      // Makes the plunger go down and the float up, turns JESUIT blue
+    if (motor < 14 && motor > 0) {
       digitalWrite(37, HIGH);
       digitalWrite(36, LOW);
+      colornum = 1;
+    }
+    else if (motor > 34  && motor < 48) {
+      // Makes the plunger go down and the float up, turns JESUIT blue
+      digitalWrite(37, LOW);
+      digitalWrite(36, HIGH);
       colornum = 2;
     }
-    else if (motor > 470) {
+    else if (motor > 68) {
       // Resets motor so that the float begins another profile
       motor = 0;
-      
+
     } else {
       //Stops motor so that there is a delay and turns JESUIT gold
       digitalWrite(37, LOW);
@@ -204,7 +218,7 @@ void loop() {
     }
   }
   Serial.println(motor);
-  
+
   // Makes the Neogrid blank
   matrix.fillScreen(0);
   // Sets the cursor
@@ -218,10 +232,10 @@ void loop() {
   if (--x < -message_width) {
     x = matrix.width();
   }
-  
+
   // Sets the color if it changes while in 'motor' mode
   matrix.setTextColor(colors[colornum]);
-  
+
   delay(100);
 }
 
@@ -243,8 +257,21 @@ void grabTime() {
     dm = bcdToDec(Wire1.read()); // get day of month
     mo = bcdToDec(Wire1.read()); // get month
     yy = bcdToDec(Wire1.read()); // get year
-    motor++;
     // indicate that we successfully got the time
+  }
+}
+
+void moveMotor() {
+  if (descending == true) {
+    digitalWrite(37, HIGH);
+    digitalWrite(36, LOW);
+    colornum = 1;
+  }
+
+  if (ascending == true) {
+    digitalWrite(37, LOW);
+    digitalWrite(36, HIGH);
+    colornum = 2;
   }
 }
 
