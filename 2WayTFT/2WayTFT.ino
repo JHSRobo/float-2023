@@ -16,8 +16,10 @@
 
 uint8_t broadcastAddress[] = {0xD4, 0xF9, 0x8D, 0x71, 0x15, 0x16};
 
-// Define variables to store BME280 readings to be sent
+// Define variables to store readings to be sent
 bool button;
+bool descending;
+bool ascending;
 
 // Define variables to store incoming readings
 byte ss;
@@ -43,6 +45,8 @@ typedef struct struct_message {
   byte _mo;
   byte _yy;
   bool _button;
+  bool _descending;
+  bool _ascending;
   int _teamnum;
 } struct_message;
 
@@ -80,9 +84,13 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
 
 }
 
-const int buttonPin = 18;
+const int buttonPinRED = 18;
+const int buttonPinGREEN = 17;
+const int buttonPinBLUE = 16;
 const int ledPin =  LED_BUILTIN;
-int buttonState = 0;
+int buttonStateRED = 0;
+int buttonStateGREEN = 0;
+int buttonStateBLUE = 0;
 
 Adafruit_ST7789 tft = Adafruit_ST7789(TFT_CS, TFT_DC, TFT_RST);
 
@@ -92,7 +100,9 @@ void setup() {
 
   pinMode(ledPin, OUTPUT);
 
-  pinMode(buttonPin, INPUT);
+  pinMode(buttonPinRED, INPUT);
+  pinMode(buttonPinGREEN, INPUT);
+  pinMode(buttonPinBLUE, INPUT);
 
   // Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
@@ -143,6 +153,8 @@ void loop() {
 
   // Sets the button data to current
   myData._button = button;
+  myData._descending = descending;
+  myData._ascending = ascending;
 
   // Checks if data was sent
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
@@ -218,12 +230,24 @@ void DisplayData() {
 
 // Function to update button and switch the on and off
 void ButtonPressed() {
-  buttonState = digitalRead(buttonPin);
-  if (buttonState == HIGH) {
+  buttonStateRED = digitalRead(buttonPinRED);
+  buttonStateGREEN = digitalRead(buttonPinGREEN);
+  buttonStateBLUE = digitalRead(buttonPinBLUE);
+  if (buttonStateRED == HIGH) {
     digitalWrite(ledPin, HIGH);
   } else {
     digitalWrite(ledPin, LOW);
     button = !button;
     delay(500);
   }
+  if (buttonStateGREEN == HIGH){
+    descending = true;
+  } else {
+    descending = false;
+  }
+   if (buttonStateBLUE == HIGH){
+    ascending = true;
+  } else {
+    ascending = false;
+  }  
 }
