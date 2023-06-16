@@ -149,7 +149,7 @@ void setup() {
 
 void loop() {
   // Calls button function
-  ButtonPressed(); 
+  ButtonPressed();
 
   // Sets the button data to current
   myData._button = button;
@@ -195,8 +195,8 @@ void DisplayData() {
   tft.println(") ");
   tft.setCursor(10, 40);
   tft.setTextColor(ST77XX_YELLOW, ST77XX_BLACK);
-    /* Displays UTC time, including hour, minute, and second, 
-  with the last two having functions to display zeros infront */
+  /* Displays UTC time, including hour, minute, and second,
+    with the last two having functions to display zeros infront */
   tft.print("Time: ");
   tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
   tft.print(hh, DEC); tft.print(":");
@@ -222,7 +222,7 @@ void DisplayData() {
   tft.setCursor(10, 100);
   tft.setTextColor(ST77XX_BLUE, ST77XX_BLACK);
   tft.setTextSize(2);
-   // Displays if the button has been pressed, not if the QT PY has recieved the message
+  // Displays if the button has been pressed, not if the QT PY has recieved the message
   tft.print("Button Pressed: ");
   tft.setTextColor(ST77XX_WHITE, ST77XX_BLACK);
   tft.print(button);
@@ -230,6 +230,9 @@ void DisplayData() {
 
 // Function to update button and switch the on and off
 void ButtonPressed() {
+  Serial.println(buttonStateBLUE);
+  Serial.println(buttonStateGREEN);
+  Serial.println(buttonStateRED);
   buttonStateRED = digitalRead(buttonPinRED);
   buttonStateGREEN = digitalRead(buttonPinGREEN);
   buttonStateBLUE = digitalRead(buttonPinBLUE);
@@ -240,14 +243,20 @@ void ButtonPressed() {
     button = !button;
     delay(500);
   }
-  if (buttonStateGREEN == HIGH){
-    descending = true;
-  } else {
+  if (buttonStateGREEN == HIGH) {
+    digitalWrite(ledPin, HIGH);
     descending = false;
-  }
-   if (buttonStateBLUE == HIGH){
-    ascending = true;
   } else {
+    digitalWrite(ledPin, LOW);
+    descending = true;
+    delay(100);
+  }
+  if (buttonStateBLUE == HIGH) {
+    digitalWrite(ledPin, HIGH);
     ascending = false;
-  }  
+  } else {
+    digitalWrite(ledPin, LOW);
+    ascending = true;
+    delay(100);
+  }
 }
