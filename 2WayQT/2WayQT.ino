@@ -167,6 +167,7 @@ void loop() {
   if (ss != wait) {
     motor++;
   }
+  Serial.println(ss);
   myData._ss = ss;
   myData._mi = mi;
   myData._hh = hh;
@@ -175,8 +176,6 @@ void loop() {
   myData._mo = mo;
   myData._yy = yy;
   myData._teamnum = 6;
-
-  moveMotor();
 
   // Send message via ESP-NOW
   esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &myData, sizeof(myData));
@@ -195,18 +194,18 @@ void loop() {
     colornum = 0;
   } else {
     // Makes the plunger go up and the float down, turns JESUIT green
-    if (motor < 14 && motor > 0) {
+    if (motor < 18 && motor > 0) {
       digitalWrite(37, HIGH);
       digitalWrite(36, LOW);
       colornum = 1;
     }
-    else if (motor > 34  && motor < 48) {
+    else if (motor > 38  && motor < 56) {
       // Makes the plunger go down and the float up, turns JESUIT blue
       digitalWrite(37, LOW);
       digitalWrite(36, HIGH);
       colornum = 2;
     }
-    else if (motor > 68) {
+    else if (motor > 66) {
       // Resets motor so that the float begins another profile
       motor = 0;
 
@@ -217,6 +216,8 @@ void loop() {
       colornum = 3;
     }
   }
+
+  moveMotor();
   Serial.println(motor);
 
   // Makes the Neogrid blank
@@ -263,15 +264,15 @@ void grabTime() {
 
 void moveMotor() {
   if (descending == true) {
+    colornum = 1;
     digitalWrite(37, HIGH);
     digitalWrite(36, LOW);
-    colornum = 1;
   }
 
   if (ascending == true) {
+    colornum = 2;
     digitalWrite(37, LOW);
     digitalWrite(36, HIGH);
-    colornum = 2;
   }
 }
 
